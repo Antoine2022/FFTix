@@ -1,115 +1,7 @@
-import time
 import numpy as np
 from math import pi
-from numba import jit, prange, njit, set_num_threads
-import pyfftw
-from multiprocessing import Pool, Lock, Process, Manager
-import matplotlib.pyplot as plt
-
-@jit
-def Indices(ii,dim):
-    if ii==0:
-        return 0,0
-    if ii==1:
-        return 1,1
-    if ii==2:
-        if dim==3:
-            return 2,2
-        if dim==2:
-            return 0,1
-    if ii==3 and dim==3:
-        return 0,1
-    if ii==4 and dim==3:
-        return 0,2
-    if ii==5 and dim==3:
-        return 1,2
-    else:
-        return -1,-1
-    
-@jit
-def VoigtIndex(i,j,dim):
-    if i==0 and j==0:
-        return 0
-    if i==1 and j==1:
-        return 1
-    if (i==0 and j==1) or (i==1 and j==0):
-        if dim==3:
-            return 3
-        if dim==2:
-            return 2
-    if i==2 and j==2 and dim==3:
-        return 2
-    if ((i==0 and j==2) or (i==2 and j==0)) and dim==3:
-        return 4
-    if ((i==1 and j==2) or (i==2 and j==1)) and dim==3:
-        return 5
-    else:
-        return -1
-
-# WARNING : A must have the minor symmetries
-@jit 
-def ToVoigt(A,dim):
-    d=int(dim*(dim+1)/2)
-    A_=np.zeros((d,d))
-    for ii in range(d):
-        for jj in range(d):
-            i,j=Indices(ii,dim)
-            k,l=Indices(jj,dim)
-            A_[ii,jj]=A[i,j,k,l]
-            if ii>=dim:
-                A_[ii,jj]*=np.sqrt(2)
-            if jj>=dim:
-                A_[ii,jj]*=np.sqrt(2)
-    return A_
-
-@jit 
-def FromVoigt(A,dim):
-    A_=np.zeros((dim,dim,dim,dim))
-    for i in range(dim):
-        for j in range(i,dim):
-            for k in range(dim):
-                for l in range(k,dim):
-                    ii=VoigtIndex(i,j,dim)
-                    jj=VoigtIndex(k,l,dim)
-                    fac=1.
-                    if ii>=dim:
-                        fac/=np.sqrt(2)
-                    if jj>=dim:
-                        fac/=np.sqrt(2)
-                    A_[i,j,k,l]=fac*A[ii,jj]
-                    A_[j,i,k,l]=fac*A[ii,jj]
-                    A_[i,j,l,k]=fac*A[ii,jj]
-                    A_[j,i,l,k]=fac*A[ii,jj]
-    return A_
-
-@jit
-def dyadic_g(a,B,dim):
-    d=np.zeros((dim,dim,dim))
-    for i in range(dim):
-        for j in range(dim):
-            for k in range(dim):
-                d[i,j,k]=a[i]*B[j,k]
-    return d 
-
-@jit
-def dyadic_d(A,b,dim):
-    d=np.zeros((dim,dim,dim,dim))
-    for i in range(dim):
-        for j in range(dim):
-            for k in range(dim):
-                for l in range(dim):
-                    d[i,j,k,l]=A[i,j,k]*b[l]
-    return d
-
-@jit
-def sym(A,dim):
-    d=np.zeros((dim,dim,dim,dim))
-    for i in range(dim):
-        for j in range(dim):
-            for k in range(dim):
-                for l in range(dim):
-                    d[i,j,k,l]=(A[i,j,k,l]+A[j,i,k,l]+A[i,j,l,k]+A[j,i,l,k])/4.
-    return d
+from numba import jit, prange, njit
+from utils import *
 
 
 @jit
@@ -186,51 +78,6 @@ def Gamma_hat_Wil(C0,dim,n,N,L,Gamma):
     Gamma+= Gamma_hat(k,C0,dim)
     return Gamma
 
-@jit
-def compute_n(i,N,dim):
-    n=[]
-    for p in range(dim):
-        n.append(0)
-    i_=i
-    for ind in range(1,dim+1):
-        q=i_
-        for j in range(ind,dim):
-            q/=N[j]
-        q=int(q)
-        n[ind-1]=q
-        for j in range(ind,dim):
-            q*=N[j]
-        i_-=q
-    return n
-
-
-
-def initialize_fft(N,dim,numThreads):
-    d=int(dim*(dim+1)/2)
-    K=N.copy()
-    K[-1] = N[-1]//2+1
-    Npadded = N.copy()
-    Npadded[-1] = K[-1]*2
-    full_array = pyfftw.n_byte_align_empty(np.append(Npadded,d), pyfftw.simd_alignment,'float64')
-    field = full_array[...,:N[-1],:]
-    field_fourier = full_array.ravel().view('complex128').reshape(np.append(K,d))
-    fft = pyfftw.FFTW(field, field_fourier, axes=range(dim),direction='FFTW_FORWARD',threads=numThreads)
-    ifft = pyfftw.FFTW(field_fourier, field, axes=range(dim),direction='FFTW_BACKWARD',threads=numThreads)
-    return field,field_fourier,fft,ifft,K
-
-def initialize_fft_cplx(N,dim,numThreads):
-    d=int(dim*(dim+1)/2)
-    K=N.copy()
-    K[-1] = N[-1]
-    Npadded = N.copy()
-    Npadded[-1] = K[-1]
-    full_array = pyfftw.n_byte_align_empty(np.append(Npadded,d), pyfftw.simd_alignment,'complex128')
-    field = full_array[...,:N[-1],:]
-    field_fourier = full_array.ravel().view('complex128').reshape(np.append(K,d))
-    fft = pyfftw.FFTW(field, field_fourier, axes=range(dim),direction='FFTW_FORWARD',threads=numThreads)
-    ifft = pyfftw.FFTW(field_fourier, field, axes=range(dim),direction='FFTW_BACKWARD',threads=numThreads)
-    return field,field_fourier,fft,ifft,K
-
 
 @njit(parallel=True)
 def initialize_Gamma(C0,K,N,L,dim,NK,NN,Gamma_field):
@@ -239,6 +86,7 @@ def initialize_Gamma(C0,K,N,L,dim,NK,NN,Gamma_field):
         n=compute_n(i,K,dim)
         Gamma=np.zeros((d,d),dtype=np.complex128)
         Gamma_field[n[0],n[1],n[2]]=Gamma_hat_Wil(C0,dim,np.array(n),N,L,Gamma)
+
 
 @njit(parallel=True)
 def initialize_G(K,dim,NK,G_field,N,L,Cref,Crefr,I):
@@ -249,11 +97,13 @@ def initialize_G(K,dim,NK,G_field,N,L,Cref,Crefr,I):
         Gamma=np.zeros((d,d),dtype=np.complex128)
         G_field[n[0],n[1],n[2]]=I-Gamma_hat_Wil(I,dim,np.array(n),N,L,Gamma)
 
+
 @njit(parallel=True)
 def fourier_product(y,x,A_fourier,dim,K,NK):
     for i in prange(NK):
         n=compute_n(i,K,dim)
         y[n[0],n[1],n[2]]=A_fourier[n[0],n[1],n[2]].dot(x[n[0],n[1],n[2]])
+
 
 @njit(parallel=True)
 def fourier_product_with_rigid(y,x,phase,A_fourier,dim,K,NK):
