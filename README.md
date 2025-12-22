@@ -2,6 +2,8 @@
 
 This repository contains some tools for FFT-based homogenization. The idea is to use numpy.fft and hence providing simple codes with a simple structure. 
 
+utils.py : Utilities for manipulation of tensors (requires numba)
+
 Operators.py : Green's operators and so on (requires numba)
 
 Schemes.py : well-known FFT-based iterative schemes for homogenization in mechanics (and thermics: coming soon).

@@ -28,6 +28,7 @@ def Gamma_hat(k,C0,dim):
     return Gamma
 
 
+# Discretization of Gamma adopted by Moulinec Suquet 1994
 @jit
 def Gamma_hat_MS(C0,dim,n,N,L,Gamma):
     k=[]
@@ -39,9 +40,10 @@ def Gamma_hat_MS(C0,dim,n,N,L,Gamma):
     Gamma+= Gamma_hat(k,C0,dim)
     return Gamma
 
+
+# Discretization of Gamma adopted by Brisard Dormieux 2012
 @jit
 def Gamma_hat_BD(C0,dim,n,N,L,Gamma):
-    k=[]
     p=[]
     for i in range(dim):
         p.append(-1)
@@ -58,18 +60,19 @@ def Gamma_hat_BD(C0,dim,n,N,L,Gamma):
             else:
                 p[ind]=-1
                 ind+=1
-                val=val/2   
+                val=val/2
+        k=[]
         for i in range(dim):
             k.append(2*np.pi*(n[i]+p[i]*N[i])/L[i])
         Gamma_h = Gamma_hat(k,C0,dim)
         G=1.
         for i in range(dim):
             G*=np.cos(L[i]/N[i]*k[i]/4)
-        Gamma+=G**2*Gamma_h
+        Gamma+=(G**2)*Gamma_h
         it+=1
     return Gamma
 
-
+# Discretization of Gamma adopted by Willot 2015
 @jit
 def Gamma_hat_Wil(C0,dim,n,N,L,Gamma):
     k=[]
@@ -78,153 +81,53 @@ def Gamma_hat_Wil(C0,dim,n,N,L,Gamma):
     Gamma+= Gamma_hat(k,C0,dim)
     return Gamma
 
-
+# Green operator
 @njit(parallel=True)
-def initialize_Gamma(C0,K,N,L,dim,NK,NN,Gamma_field):
+def initialize_Gamma(C0,N,L,dim,NN,Gamma_field,type):
     d=int(dim*(dim+1)/2)
-    for i in prange(1,NK):
-        n=compute_n(i,K,dim)
+    for i in prange(1,NN):
+        n=compute_n(i,N,dim)
         Gamma=np.zeros((d,d),dtype=np.complex128)
-        Gamma_field[n[0],n[1],n[2]]=Gamma_hat_Wil(C0,dim,np.array(n),N,L,Gamma)
+        if type=="Willot":
+            Gamma_field[n[0],n[1],n[2]]=Gamma_hat_Wil(C0,dim,np.array(n),N,L,Gamma)
+        if type=="Moulinec-Suquet":
+            Gamma_field[n[0],n[1],n[2]]=Gamma_hat_MS(C0,dim,np.array(n),N,L,Gamma)
+        if type=="Brisard-Dormieux":
+            Gamma_field[n[0],n[1],n[2]]=Gamma_hat_BD(C0,dim,np.array(n),N,L,Gamma)
 
-
+# Stress Green operator
 @njit(parallel=True)
-def initialize_G(K,dim,NK,G_field,N,L,Cref,Crefr,I):
+def initialize_Delta(C0,N,L,dim,NN,Delta_field,type):
     d=int(dim*(dim+1)/2)
-    G_field[0,0,0]=I
-    for i in prange(1,NK):
-        n=compute_n(i,K,dim)
+    Delta_field[0,0,0]=C0
+    C0_cplx=C0.astype(np.complex128)
+    for i in prange(1,NN):
+        n=compute_n(i,N,dim)
         Gamma=np.zeros((d,d),dtype=np.complex128)
-        G_field[n[0],n[1],n[2]]=I-Gamma_hat_Wil(I,dim,np.array(n),N,L,Gamma)
+        if type=="Willot":
+            Gamma=Gamma_hat_Wil(C0,dim,np.array(n),N,L,Gamma)
+        if type=="Moulinec-Suquet":
+            Gamma=Gamma_hat_MS(C0,dim,np.array(n),N,L,Gamma)
+        if type=="Brisard-Dormieux":
+            Gamma=Gamma_hat_BD(C0,dim,np.array(n),N,L,Gamma)
+        Delta_field[n[0],n[1],n[2]]=C0_cplx-np.dot(C0_cplx,np.dot(Gamma,C0_cplx))
 
 
 @njit(parallel=True)
-def fourier_product(y,x,A_fourier,dim,K,NK):
-    for i in prange(NK):
-        n=compute_n(i,K,dim)
-        y[n[0],n[1],n[2]]=A_fourier[n[0],n[1],n[2]].dot(x[n[0],n[1],n[2]])
-
-
-@njit(parallel=True)
-def fourier_product_with_rigid(y,x,phase,A_fourier,dim,K,NK):
-    for i in prange(NK):
-        n=compute_n(i,K,dim)
-        if phase[n[0],n[1],n[2]]>=0:
-            y[n[0],n[1],n[2]]=A_fourier[n[0],n[1],n[2]].dot(x[n[0],n[1],n[2]])
-        else:
-            y[n[0],n[1],n[2]]=x[n[0],n[1],n[2]]
-
-
-@njit(parallel=True)
-def fourier_product_bis(x,A_fourier,dim,K,NK):
-    for i in prange(NK):
-        n=compute_n(i,K,dim)
-        x[n[0],n[1],n[2]]=((A_fourier[n[0],n[1],n[2]]).transpose()).dot(x[n[0],n[1],n[2]])
-
-
-def spatial_convolution(x,yfourier,fft,ifft,Gamma_field,dim,K,NK):
-    xfourier=fft(x)
-    fourier_product(yfourier,xfourier,Gamma_field,dim,K,NK)
-    return -ifft(yfourier)
-
-def spectral_convolution(xfourier,ifft,Gamma_field,dim,K,NK):
-    fourier_product(xfourier,xfourier,Gamma_field,dim,K,NK)
-    return -ifft(xfourier)
-
-def spectral_convolution_with_rigid(xfourier,phase,ifft,Gamma_field,dim,K,NK):
-    fourier_product_with_rigid(xfourier,xfourier,phase,Gamma_field,dim,K,NK)
-    return -ifft(xfourier)
-
-
-def compute_energie(Ci,eps_field,N,NN):
-    energie=0.
-    for i in np.ndindex(tuple(N)):
-        energie+=0.5*np.dot(eps_field[i],np.dot(Ci[i],eps_field[i]))/NN
-    return energie
-
-@njit(parallel=True)
-def compute_sig(Ci,sig,eps_field,N,dim,NN):
+def product(y,A,x,dim,N,NN):
     for i in prange(NN):
         n=compute_n(i,N,dim)
-        sig+=np.dot(Ci[n[0],n[1],n[2]],eps_field[n[0],n[1],n[2]])/NN
-    return sig
+        y[n[0],n[1],n[2]]=np.dot(A[n[0],n[1],n[2]],x[n[0],n[1],n[2]])
 
 
-@njit(parallel=True)
-def sub(field_0,field_1,field_2,N,dim,NN):
-    for i in prange(NN):
-        n=compute_n(i,N,dim)
-        field_0[n[0],n[1],n[2]]=field_1[n[0],n[1],n[2]]-field_2[n[0],n[1],n[2]]
+def Fourier_convolution(x,Fourier_kernel,dim,N,NN):
+    xfourier=np.fft.fftn(x,axes=range(dim))
+    product(xfourier,Fourier_kernel,xfourier,dim,N,NN)
+    return np.fft.ifftn(xfourier,axes=range(dim))
 
-@njit(parallel=True)
-def C0_norm2(C0,field,N,dim,NN):
-    nor2=0.
-    for i in prange(NN):
-        n=compute_n(i,N,dim)
-        nor2+=np.dot(field[n[0],n[1],n[2]],np.dot(C0,field[n[0],n[1],n[2]]))/NN
-    return nor2
+def norm2(x,d):
+    x=x.reshape(-1,d)
+    return np.trace(np.dot(np.transpose(x),x))
+    
 
 
-@njit(parallel=True)
-def init_fields(Ci,field,eps_field,eps_field_C,sig_field_C,Ej,N,dim,NN,C0,Cref):
-    S0=np.linalg.inv(C0)
-    for i in prange(NN):
-        n=compute_n(i,N,dim)
-        eps_field_C[n[0],n[1],n[2]]=-np.dot(Cref,field[n[0],n[1],n[2]])
-        sig_field_C[n[0],n[1],n[2]]=np.dot(Cref,np.dot(S0,np.dot(Ci[n[0],n[1],n[2]],Ej+field[n[0],n[1],n[2]])))
-        eps_field[n[0],n[1],n[2]]=-field[n[0],n[1],n[2]]
-
-@njit(parallel=True)
-def init_fields_LF(Si,field,eps_field,eps_field_C,sig_field_C,Ej,N,dim,NN,C0,Cref):
-    S0=np.linalg.inv(C0)
-    for i in prange(NN):
-        n=compute_n(i,N,dim)
-        eps_field_C[n[0],n[1],n[2]]=np.dot(Cref,Ej-np.dot(Si[n[0],n[1],n[2]],field[n[0],n[1],n[2]]))
-        sig_field_C[n[0],n[1],n[2]]=np.dot(Cref,np.dot(S0,field[n[0],n[1],n[2]]))
-        eps_field[n[0],n[1],n[2]]=Ej-np.dot(Si[n[0],n[1],n[2]],field[n[0],n[1],n[2]])
-
-def residual(Ci,field,Ej,C0,Cref,N,dim,NN,sig_field_fourier,sig_field_C,eps_field_fourier,eps_field_C,fft_s,ifft_s,fft_e,ifft_e,Gamma_field,K,NK):
-    d=int(dim*(dim+1)/2)
-    eps_field=np.zeros(tuple(N)+(d,))
-    init_fields(Ci,field,eps_field,eps_field_C,sig_field_C,Ej,N,dim,NN,C0,Cref)
-    sig_field_C=-spatial_convolution(sig_field_C,sig_field_fourier,fft_s,ifft_s,Gamma_field,dim,K,NK)
-    nC2=C0_norm2(C0,sig_field_C,N,dim,NN)
-    eps_field_C=-spatial_convolution(eps_field_C,eps_field_fourier,fft_e,ifft_e,Gamma_field,dim,K,NK)
-    eps_field_S=np.zeros(tuple(N)+(d,))
-    sub(eps_field_S,eps_field,eps_field_C,N,dim,NN)
-    nS2=C0_norm2(C0,eps_field_S,N,dim,NN)
-    return np.sqrt((nS2+nC2)/np.dot(Ej,np.dot(C0,Ej)))
-
-def residual_EP(Ci,field,Ej,C0,Cref,N,dim,NN,sig_field_fourier,sig_field_C,eps_field_fourier,eps_field_C,fft_s,ifft_s,fft_e,ifft_e,Gamma_field,K,NK):
-    d=int(dim*(dim+1)/2)
-    Cref_=Cref
-    Cref=np.zeros((d,d),dtype=np.complex128)
-    for i in range(d):
-        for j in range(d):
-            Cref[i,j]=complex(Cref_[i,j])
-    eps_field=np.zeros(tuple(N)+(d,),dtype=np.complex128)
-    init_fields(Ci,field,eps_field,eps_field_C,sig_field_C,Ej,N,dim,NN,C0,Cref)
-    sig_field_C=-spatial_convolution(sig_field_C,sig_field_fourier,fft_s,ifft_s,Gamma_field,dim,K,NK)
-    nC2=C0_norm2(C0,sig_field_C,N,dim,NN)
-    eps_field_C=-spatial_convolution(eps_field_C,eps_field_fourier,fft_e,ifft_e,Gamma_field,dim,K,NK)
-    eps_field_S=np.zeros(tuple(N)+(d,),dtype=np.complex128)
-    sub(eps_field_S,eps_field,eps_field_C,N,dim,NN)
-    nS2=C0_norm2(C0,eps_field_S,N,dim,NN)
-    return np.sqrt((nS2+nC2)/np.dot(Ej,np.dot(C0,Ej)))
-
-def residual_LF(Si,field,Ej,C0,Cref,N,dim,NN,sig_field_fourier,sig_field_C,eps_field_fourier,eps_field_C,fft_s,ifft_s,fft_e,ifft_e,Gamma_field,K,NK):
-    d=int(dim*(dim+1)/2)
-    Cref_=Cref
-    Cref=np.zeros((d,d),dtype=np.complex128)
-    for i in range(d):
-        for j in range(d):
-            Cref[i,j]=complex(Cref_[i,j])
-    eps_field=np.zeros(tuple(N)+(d,),dtype=np.complex128)
-    init_fields_LF(Si,field,eps_field,eps_field_C,sig_field_C,Ej,N,dim,NN,C0,Cref)
-    sig_field_C=-spatial_convolution(sig_field_C,sig_field_fourier,fft_s,ifft_s,Gamma_field,dim,K,NK)
-    nC2=C0_norm2(C0,sig_field_C,N,dim,NN)
-    eps_field_C=-spatial_convolution(eps_field_C,eps_field_fourier,fft_e,ifft_e,Gamma_field,dim,K,NK)
-    eps_field_S=np.zeros(tuple(N)+(d,),dtype=np.complex128)
-    sub(eps_field_S,eps_field,eps_field_C,N,dim,NN)
-    nS2=C0_norm2(C0,eps_field_S,N,dim,NN)
-    return np.sqrt((nS2+nC2)/np.dot(Ej,np.dot(C0,Ej)))
