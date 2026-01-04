@@ -1,3 +1,8 @@
 # general
 /**/__pycache__/
+/**/src/
+/**/include/
+
+# demos
 *.npy
+*.txt

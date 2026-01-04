@@ -1,28 +1,20 @@
 import numpy as np
 import sys
-sys.path.append("../Generatix/")
-from spherocylinders import generate_micro
-    
-l=0.5 #length of spherocylinder
-e=10 #aspect ratio
-D=1 #side of the box
-f=0.01 # target fraction (will be smaller after voxelization)
+sys.path.append("../")
 
-micro=generate_micro(D/2,l,l/e/2,f)
-micro_name="micro_randomly_oriented"
-np.save("./"+micro_name+".npy",micro)
 
-from voxel import voxelize_ell
-N0=64
-phase=voxelize_ell(micro,N0,l,e,D)
-
+micro_name="micro_randomly_oriented_voxelized"
+phase=np.load("./"+micro_name+".npy")
+N0 = len(phase)
+print("size: ",N0)
 cpt=0.
 for i in np.ndindex(phase.shape):  
     if phase[i]==1:
         cpt+=1
-print("frac :",cpt/N0**3)
+print("frac: ",cpt/N0**3)
 
-from Schemes import *
+
+from Linear_schemes import *
 
 N=[N0,N0,N0]
 L0=1.
@@ -30,6 +22,7 @@ L=[L0,L0,L0]
 dim=3
 d=int(dim*(dim+1)/2)
 
+# The schemes require a remote field E_field, which can be non uniform. Here we construct this field. (The implementation could be modified of course).
 Ej=np.array([1.,0.,0.,0.,0.,0.])
 Ej_field=np.zeros(tuple(N)+(d,))
 for i in np.ndindex(tuple(N)):
@@ -42,8 +35,8 @@ for i in range(dim):
         J[i,j]=1./3
 K=I-J
 
-# Strain-based scheme is better for soft matrix with rigid inclusions: c_i high !
-c_i=50
+# Strain-based scheme is better for rigid matrix with soft inclusions: c_i small !
+c_i=0.01
 k0=13./6
 mu0=1.
 kinc=k0*c_i
@@ -64,13 +57,13 @@ Cref=3*kref*J+2*muref*K
 name='name'
 Strain_BS(Ej_field,N,L,Cref,Ci,1e-4,name,"Moulinec-Suquet")  ## Types "Willot" and "Brisard-Dormieux" also possible
 
-# Stress-based scheme is better for rigid matrix with soft inclusions: c_i small !
-c_i=0.02
+# Stress-based scheme is better for soft matrix with rigid inclusions: c_i high !
+c_i=100
 kinc=k0*c_i
 muinc=mu0*c_i
 Sinc=1/(3*kinc)*J+1/(2*muinc)*K
-kref=2*k0*min(1,c_i)
-muref=2*mu0*min(1,c_i)
+kref=2*k0*c_i/(1+c_i)
+muref=2*mu0*c_i/(1+c_i)
 Sref=1/(3*kref)*J+1/(2*muref)*K
 name='name'
 S0=1/(3*k0)*J+1/(2*mu0)*K
@@ -85,7 +78,7 @@ for i in np.ndindex(tuple(N)):
 Stress_BS(Ej_field,N,L,Sref,Si,1e-4,name,"Willot")   ## Types "Moulinec-Suquet" and "Brisard-Dormieux" also possible
 
 # For Eyre-Milton scheme, you have to provide the array of (Ci+Cref)^{-1}.
-c_i=50
+c_i=100
 kinc=k0*c_i
 muinc=mu0*c_i
 Cinc=3*kinc*J+2*muinc*K

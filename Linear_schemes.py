@@ -1,5 +1,4 @@
 import numpy as np
-import time
 from Operators import *
 
 # For strain-based basic scheme (energie is optional)
