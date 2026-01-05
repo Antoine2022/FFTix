@@ -16,3 +16,12 @@ demos : folder with demos
  - linear_elasticity.py : simple examples for linear case
  - linear_viscoelasticity.py : example of a viscoelastic computation, using MFront material behaviours on each phase. The file "maxwell.mfront" must be compiled with mfront by doing "mfront --obuild --interface=generic maxwell.mfront" and then, to launch the demo (but also to use Non_linear_schemes.py), the mgis module must be sourced. Hence, you must install MFrontGenericInterfaceSupport.
 
+ ## Examples
+
+ Here is an example with Linear_schemes.py, of a FFT computation in linear elasticity, with "Brisard-Dormieux" discretization of Green operator, on a 256^3 grid:
+
+ <p align="center">
+    <img src="images/fibrous.png" width="60%" /><br>
+    <em> >Fiber-reinforced medium, FFT computation</em>
+ </p>
+
