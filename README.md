@@ -22,6 +22,11 @@ demos : folder with demos
 
  <p align="center">
     <img src="images/fibrous.png" width="60%" /><br>
-    <em> >Fiber-reinforced medium, FFT computation</em>
+    <em> Reinforced medium, FFT computation</em>
  </p>
+
+ Here is another example with Non_linear_schemes.py, of a FFT computation in linear visco-elasticity:
+
+[![Reinforced viscoelastic medium, FFT computation]("images/visco.jpg")]("images/visco.mov")
+
 
