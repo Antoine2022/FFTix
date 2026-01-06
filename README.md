@@ -26,9 +26,7 @@ demos : folder with demos
  </p>
 
  Here is another example with Non_linear_schemes.py, of a FFT computation in linear visco-elasticity:
- 
- <p align="center">
-    <video src="https://github.com/Antoine2022/FFTix/blob/main/images/visco.mp4" width="60%" /><br>
-    <em> Reinforced viscoelastic medium, FFT computation</em>
- </p>
+
+https://github.com/user-attachments/assets/674a64cb-4099-4709-9c54-2545897cdaf1
+
 
