@@ -27,6 +27,6 @@ demos : folder with demos
 
  Here is another example with Non_linear_schemes.py, of a FFT computation in linear visco-elasticity:
 
-[![Reinforced viscoelastic medium, FFT computation]("images/visco.jpg")]("images/visco.mov")
+<video src="images/visco.mov" width="320" height="240" controls></video>
 
 
