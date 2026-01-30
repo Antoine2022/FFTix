@@ -8,7 +8,7 @@ phase=np.load("./"+micro_name+".npy")
 N0 = len(phase)
 print("size: ",N0)
 
-from Non_linear_schemes import Non_linear_BS
+from Non_linear_schemes import Non_linear_Strain_BS
 
 N=[N0,N0,N0]
 L0=1.
@@ -77,7 +77,7 @@ for i_t in range(Nt):
     E_history[i_t]=Ej*eps_list[i_t+1]
 
 
-Non_linear_BS(E_history,dt,N,L,phase,behaviours,Cref,precision,"name","Willot")
+Non_linear_Strain_BS(E_history,dt,N,L,phase,behaviours,Cref,precision,"name","Willot")
 
     
 

@@ -120,6 +120,7 @@ def product(y,A,x,dim,N,NN):
         y[n[0],n[1],n[2]]=np.dot(A[n[0],n[1],n[2]],x[n[0],n[1],n[2]])
 
 
+# This Fourier convolution can be used for computing Gamma(tau), but also Delta(tau). Just choose the good 'Fourier_kernel'.
 def Fourier_convolution(x,Fourier_kernel,dim,N,NN):
     xfourier=np.fft.fftn(x,axes=range(dim))
     product(xfourier,Fourier_kernel,xfourier,dim,N,NN)
