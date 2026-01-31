@@ -12,9 +12,9 @@ def init_state(behaviours,d):
         behaviours[r].s0.gradients[:] = zero
         behaviours[r].s0.thermodynamic_forces[:] = zero
 
-def constitutive_update(Cref,field,eps_field,micro_flat,behaviours,dim,NN,dt_):
+def constitutive_update(Cref,field,eps_resh,micro_flat,behaviours,dim,NN,dt_):
     d=int(dim*(dim+1)/2)
-    eps_resh=eps_field.reshape(NN,d)
+    shape=field.shape
     field = field.reshape(NN,d)
     nph=len(behaviours)
     for r in range(nph):
@@ -24,15 +24,15 @@ def constitutive_update(Cref,field,eps_field,micro_flat,behaviours,dim,NN,dt_):
         assert rs > 0, "Behaviour integration has failed."
         field[micro_flat==r,:]= behaviours[r].s1.thermodynamic_forces[:]
     sig=np.mean(field,axis=0)
-    field = field.reshape(eps_field.shape)
+    field = field.reshape(shape)
     Creps= eps_resh @ Cref
-    Creps=Creps.reshape(eps_field.shape)
+    Creps=Creps.reshape(shape)
     field = field - Creps
     return sig,field
 
-def dual_constitutive_update(Sref,field,sig_field,micro_flat,behaviours,dim,NN,dt_):
+def dual_constitutive_update(Sref,field,sig_resh,micro_flat,behaviours,dim,NN,dt_):
     d=int(dim*(dim+1)/2)
-    sig_resh=sig_field.reshape(NN,d)
+    shape=field.shape
     field = field.reshape(NN,d)
     nph=len(behaviours)
     for r in range(nph):
@@ -41,13 +41,12 @@ def dual_constitutive_update(Sref,field,sig_field,micro_flat,behaviours,dim,NN,d
         rs = mgis_bv.integrate(p1,behaviours[r], integration_type, dt_)
         assert rs > 0, "Behaviour integration has failed."
         field[micro_flat==r,:]= behaviours[r].s1.thermodynamic_forces[:]
-    sig=np.mean(sig_resh,axis=0)
     eps=np.mean(field,axis=0)
-    field = field.reshape(sig_field.shape)
+    field = field.reshape(shape)
     Srsig= sig_resh @ Sref
-    Srsig= Srsig.reshape(sig_field.shape)
+    Srsig= Srsig.reshape(shape)
     field = field - Srsig
-    return eps,sig,field
+    return eps,field
 
 # The strain basic scheme is the initial scheme from Moulinec and Suquet.
 # It is strain-piloted: we provide an history E_history which is a uniform remote strain which evolves in time.
@@ -66,6 +65,7 @@ def Non_linear_Strain_BS(E_history,dt,N,L,phases,behaviours,Cref,prec,name,type)
     initialize_Gamma(Cref,N,L,dim,NN,Gamma_fourier,type)
     field=np.zeros(tuple(N)+(d,))
     eps_field=np.zeros(tuple(N)+(d,))
+    eps_resh=eps_field.reshape(NN,d)
     init_state(behaviours,d)
     t1=0.
     micro_flat=phases.flatten()
@@ -81,17 +81,15 @@ def Non_linear_Strain_BS(E_history,dt,N,L,phases,behaviours,Cref,prec,name,type)
         t1+=dt[i_t-1]
         crit=prec[i_t-1]+1
         while crit>prec[i_t-1]:
+            sig_moy,field=constitutive_update(Cref,field,eps_resh,micro_flat,behaviours,dim,NN,dt[i_t-1])  
             field=-Fourier_convolution(field,Gamma_fourier,dim,N,NN)
             field=field.astype("float64")
             res=eps_field-E_field-field
             crit=norm2(res,d)/normE
             eps_field=E_field+field
-            sig_moy,field=constitutive_update(Cref,field,eps_field,micro_flat,behaviours,dim,NN,dt[i_t-1])            
+            eps_resh=eps_field.reshape(NN,d)
             iteration+=1
             print("t ",t1," it ",iteration," conv ",crit," sig ",sig_moy)
-        eps_resh=eps_field.reshape(NN,d)
-        for r in range(nph):
-            eps_resh[micro_flat==r,:] = behaviours[r].s1.gradients[:]
         eps_moy=np.mean(eps_resh,axis=0)
         file.write(str(t1))
         for jj in range(6):
@@ -123,6 +121,7 @@ def Non_linear_Stress_BS(E_history,dt,N,L,phases,behaviours,Sref,prec,name,type)
     initialize_Delta(Cref,N,L,dim,NN,Delta_fourier,type)
     field=np.zeros(tuple(N)+(d,))
     sig_field=np.zeros(tuple(N)+(d,))
+    sig_resh=np.reshape(sig_field,(NN,d))
     init_state(behaviours,d)
     t1=0.
     micro_flat=phases.flatten()
@@ -141,12 +140,14 @@ def Non_linear_Stress_BS(E_history,dt,N,L,phases,behaviours,Sref,prec,name,type)
         t1+=dt[i_t-1]
         crit=prec[i_t-1]+1
         while crit>prec[i_t-1]:
+            eps_moy,field=dual_constitutive_update(Sref,field,sig_resh,micro_flat,behaviours,dim,NN,dt[i_t-1]) 
             field=-Fourier_convolution(field,Delta_fourier,dim,N,NN)
             field=field.astype("float64")
             res=sig_field-CrE-field
             crit=norm2(res,d)/normCE
             sig_field=CrE+field
-            eps_moy,sig_moy,field=dual_constitutive_update(Sref,field,sig_field,micro_flat,behaviours,dim,NN,dt[i_t-1])            
+            sig_resh=np.reshape(sig_field,(NN,d))
+            sig_moy=np.mean(sig_resh,axis=0)
             iteration+=1
             print("t ",t1," it ",iteration," conv ",crit," sig ",sig_moy)
         file.write(str(t1))
