@@ -6,13 +6,23 @@
 @UseQt false;
 
 @TFELLibraries {"Material"};
+@Includes{
+#include "TFEL/Material/PolyCrystalsSlidingSystems.hxx"}
 
+@ModellingHypothesis Tridimensional;
 @OrthotropicBehaviour;
 @CrystalStructure HCP;
 @SlidingSystems{<1, 1, -2, 0>{1, -1, 0, 0},
                 <-2, 1, 1, 3>{1, -1, 0, 1},
                 <-2, 1, 1, 0>{0, 0, 0, 1},
                 <1, 1, -2, 0>{1, -1, 0, 1}};
+
+// total number of grains
+@IntegerConstant Np = 10;
+
+//number of the grain
+@MaterialProperty real r;
+r.setEntryName("r");
 
 @MaterialProperty real tau0;
 tau0.setEntryName("tau0");
@@ -23,31 +33,32 @@ gamma0.setEntryName("gamma0");
 @MaterialProperty real n;
 n.setEntryName("n");
 
-@ModellingHypothesis Tridimensional;
 @PhysicalBounds T in [0. : *[;
 
 
 @Integrator {
-const auto &gs = crystalcrystallineSlipSystems<real>::getSlipSystems();
-//it is very misleading, but here sigma stands for the strain rate !
+//this is probably not the better implementation since here, the orientations of all grains are loaded
+const auto& gs =
+      PolyCrystalsSlidingSystems<Np,crystalcrystallineSlipSystems<real>,real>::getPolyCrystalsSlidingSystems("polycrystal.txt");
+
+//it is very misleading, but here sigma stands for the strain rate
 sig=Stensor::zero();
-auto epso = eto+deto;
 for (int k = 0; k<Nss; k++){
-  //it is very misleading, but here, eto stands for the stress !
-  auto tauk = (eto+deto) | gs.mus[k];
+  //it is very misleading, but here, eto stands for the stress
+  auto tauk = (eto+deto) | gs.mus[int(r)][k];
   const auto sgn = tauk<0 ? real(-1) : real(1);
   auto puisn = gamma0*pow(abs(tauk)/tau0, n);
-  sig+=sgn*puisn*gs.mus[k];
+  sig+=sgn*puisn*gs.mus[int(r)][k];
 }
 };
 
 
 @TangentOperator{
-const auto &gs = crystalcrystallineSlipSystems<real>::getSlipSystems();
+const auto &gs = PolyCrystalsSlidingSystems<Np,crystalcrystallineSlipSystems<real>,real>::getPolyCrystalsSlidingSystems("polycrystal.txt");
   Dt=Stensor4::zero();
   for (int k = 0; k<Nss; k++){
-    auto Nk = gs.mus[k]^gs.mus[k];
-    auto tauk = (eto+deto) | gs.mus[k];
+    auto Nk = gs.mus[int(r)][k]^gs.mus[int(r)][k];
+    auto tauk = (eto+deto) | gs.mus[int(r)][k];
     auto puis = n*gamma0/tau0*max(pow(abs(tauk)/tau0, n-1),1e-6);
     Dt+=puis * Nk;
   }

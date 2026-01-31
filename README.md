@@ -15,6 +15,7 @@ demos : folder with demos
  
  - linear_elasticity.py : simple examples for linear case
  - linear_viscoelasticity.py : example of a viscoelastic computation, using MFront material behaviours on each phase. The file "maxwell.mfront" must be compiled with mfront by doing "mfront --obuild --interface=generic maxwell.mfront" and then, to launch the demo (but also to use Non_linear_schemes.py), the mgis module must be sourced. Hence, you must install MFrontGenericInterfaceSupport.
+ - non_linear_polycrystal.py : example of a computation on a polycrystal, using a MFront material behaviour on each grain. The file "crystalline.mfront" must be compiled with mfront by doing "mfront --obuild --interface=generic crystalline.mfront" and then, to launch the demo (but also to use Non_linear_schemes.py), the mgis module must be sourced. Hence, you must install MFrontGenericInterfaceSupport.
 
  ## Examples
 
@@ -25,7 +26,16 @@ demos : folder with demos
     <em> Reinforced medium, FFT computation</em>
  </p>
 
- Here is another example with Non_linear_schemes.py, of a FFT computation in linear visco-elasticity:
+ Here is an example performed with the demo linear_viscoelasticity.py, of a FFT computation in linear visco-elasticity:
 
 https://github.com/user-attachments/assets/674a64cb-4099-4709-9c54-2545897cdaf1
+
+And another example on on polycrystal whose strain-rate is governed by one non-linear potential (demo non_linear_polycrystal.py):
+
+<p align="center">
+    <img src="images/polycrystal1.png" width="60%" /><br>
+    <em> Polycrystal, 10 grains, each with different sliding systems, resolved shear stress and creep exponents</em>
+ </p>
+
+
 

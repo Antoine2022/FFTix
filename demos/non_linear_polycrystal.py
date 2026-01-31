@@ -2,7 +2,6 @@ import numpy as np
 import mgis.behaviour as mgis_bv
 import sys
 sys.path.append("../")
-import matplotlib.pyplot as plt
 import random
 
 micro_name="polycrystal"
@@ -25,19 +24,21 @@ for i in range(dim):
         J[i,j]=1./3
 K=I-J
 
-# with stress basic scheme, the reference medium has to be softer than twice the minimum stiffness
-kref=5
-muref=5
+# with linear stress basic scheme, the reference medium has to be softer than twice the minimum stiffness
+# but for non linear schemes, the reference medium needs to be adapted to the stiffness, which depends
+# on the magnitude of the resolved stress "tau" for this case
+kref=0.1
+muref=0.1
 Cref=3*kref*J+2*muref*K
 Sref=np.linalg.inv(Cref)
 
 tf=1.
-eps_rate_final = 1
+eps_rate_final = 20
 Nt = 20
 Nt=int(Nt)
 
 eps_list=np.linspace(0,eps_rate_final,Nt+1)
-precision = Nt * [1e-3]
+precision = Nt * [0.001]
 dt = Nt * [tf/Nt]
 
 lib_path = "./src/libcrystal-generic.dll"
@@ -60,13 +61,12 @@ behaviours=[]
 for r in range(Np):
     data_r=mgis_bv.MaterialDataManager(behaviour, ngauss[r])
     for state_manager in [data_r.s0, data_r.s1]:
+        mgis_bv.setMaterialProperty(state_manager, "r", r)
         mgis_bv.setMaterialProperty(state_manager, "tau0", 3+10*random.random())
         mgis_bv.setMaterialProperty(state_manager, "gamma0", 1)
         mgis_bv.setMaterialProperty(state_manager, "n", 1+2*random.random())
         mgis_bv.setExternalStateVariable(state_manager, "Temperature", 293.15)
     behaviours.append(data_r)
-for r in range(Np):
-    print((behaviours[r].s1.gradients[:]).shape)
 
 # For non linear behaviours, we provide an history E_history which is a uniform remote strain which evolves in time. Indeed, it would be heavy to provide a history of fields.
 Ej=np.array([1.,-1.,0.,0.,0.,0.])
