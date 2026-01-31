@@ -4,6 +4,8 @@ import sys
 sys.path.append("../")
 import random
 
+# this file contains the number of a grain on each voxel. It is not present in the repository
+# so you have to generate it, for example with merope (https://github.com/MarcJos/Merope).
 micro_name="polycrystal"
 phase=np.load("./"+micro_name+".npy")
 N0 = len(phase)
@@ -41,6 +43,8 @@ eps_list=np.linspace(0,eps_rate_final,Nt+1)
 precision = Nt * [0.001]
 dt = Nt * [tf/Nt]
 
+# the behaviour must be compiled before by doing "mfront --obuild --interface=generic crystalline.mfront"
+# With linux, change the .dll in .so
 lib_path = "./src/libcrystal-generic.dll"
 bv_name="crystalcrystalline"
 hypothesis = mgis_bv.Hypothesis.Tridimensional

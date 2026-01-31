@@ -38,6 +38,9 @@ n.setEntryName("n");
 
 @Integrator {
 //this is probably not the better implementation since here, the orientations of all grains are loaded
+// the file "polycrystal.txt" contains the angles for the rotation of the grain, and the volume fractions (useless here).
+// We put this file in the github repository, but do not forget that it must correspond with the number of grains
+// that appears in your microstructure file .npy
 const auto& gs =
       PolyCrystalsSlidingSystems<Np,crystalcrystallineSlipSystems<real>,real>::getPolyCrystalsSlidingSystems("polycrystal.txt");
 
