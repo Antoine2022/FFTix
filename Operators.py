@@ -77,7 +77,7 @@ def Gamma_hat_BD(C0,dim,n,N,L,Gamma):
 def Gamma_hat_Wil(C0,dim,n,N,L,Gamma):
     k=[]
     for i in range(dim):
-        k.append(N[i]/L[i]*np.tan(np.pi*n[i]/N[i]))
+        k.append(np.sin(2*np.pi*n[i]/N[i]))
     Gamma+= Gamma_hat(k,C0,dim)
     return Gamma
 
