@@ -197,7 +197,7 @@ def initialize_Gamma(C0,N,L,dim,NN,Gamma_field,type):
             Gamma_field[n[0],n[1],n[2]]=Gamma_hat_BD(C0,dim,np.array(n),N,L,Gamma)
 
 @njit(parallel=True)
-def initialize_Gamma_1_G(kref,muref,N,L,dim,NN,kernel_1,kernel_G):
+def initialize_Gamma_1_G(N,L,dim,NN,kernel_1,kernel_G):
     d=int(dim*(dim+1)/2)
     for i in prange(1,NN):
         n=compute_n(i,N,dim)
@@ -224,7 +224,7 @@ def initialize_Delta(C0,N,L,dim,NN,Delta_field,type):
         Delta_field[n[0],n[1],n[2]]=C0_cplx-np.dot(C0_cplx,np.dot(Gamma,C0_cplx))
 
 @njit(parallel=True)
-def initialize_Delta_2_F_f(kref,muref, N, L, dim, NN, kernel_2,kernel_F):
+def initialize_Delta_2_F_f( N, L, dim, NN, kernel_2,kernel_F):
     d=int(dim*(dim+1)/2)
     for i in prange(1,NN):
         n=compute_n(i,N,dim)
